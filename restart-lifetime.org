@@ -59,24 +59,6 @@
     foo_sequence[0].bar(); // UNDEFINED BEHAVIOR
   #+end_src
 
-** ~realloc~
-
-  #+begin_src C++
-    // A trivially relocatable, but not trivially copyable, type.
-    class Foo { /*...*/ };
-
-    // Create a foo sequence with a single element using a specialized allocator.
-    void* foo_sequence_buffer = mi_malloc_aligned(sizeof(Foo), alignof(Foo));
-    Foo* foo_sequence = ::new (foo_sequence_buffer) Foo();
-
-    // Extend the sequence reusing the same memory if possible
-    foo_sequence_buffer = mi_realloc_aligned(foo_sequence_buffer, sizeof(Foo)*2, alignof(Foo));
-    foo_sequence = (Foo*)foo_sequence_buffer;
-    ::new (&foo_sequence[1]) Foo();
-
-    foo_sequence[0].bar(); // UNDEFINED BEHAVIOR
-  #+end_src
-
 ** ~serialization~
 
    In-memory databases/tiered caching systems
@@ -144,7 +126,7 @@
 
 ** Other use-cases are handled in a similar way
 
-   From Arthur O'Dwire's [[https://quuxplusone.github.io/blog/2025/10/18/thoughts-on-p3858r0/][Thoughts on P3858R0]]:
+   From Arthur O'Dwyer's [[https://quuxplusone.github.io/blog/2025/10/18/thoughts-on-p3858r0/][Thoughts on P3858R0]]:
   #+begin_src C++
     template<class T>
       requires std::is_trivially_relocatable_v<T> // P1144 semantics
