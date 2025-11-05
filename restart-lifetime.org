@@ -62,8 +62,8 @@
 ** ~serialization~
 
    In-memory databases/tiered caching systems
-   - frequently relocate data structures from memory to disk and back again
-   - possible only for /trivially copyable/ types due to the lack of sufficient
+   - Frequently relocate data structures from memory to disk and back again
+   - Possible only for /trivially copyable/ types due to the lack of sufficient
      library primitives for /trivially relocatable/ types
 
 ** Specialized ~memcpy~ use case
@@ -72,19 +72,19 @@
 
 ** Rust-interop use case
    - C++ types that aren't /trivially copyable/ have poor ergonomics (via
-     pinning) or incur performance penalties (heap allocation).
+     pinning) or incur performance penalties (heap allocation)
    - There's no way to extend the fast, ergonomics to /trivially relocatable/
-     types with the existing primitives.
+     types with the existing primitives
 
 ** Type erasure use case
-   Create a typeerased wrapper that is trivially relocatable
-   - Use small buffer optimization when its wrapped type is trivially relocatable.
+   Create a type erased wrapper that is trivially relocatable
+   - Use small buffer optimization when its wrapped type is trivially relocatable
    - Use heap allocation otherwise
 
    /Currently not possible/
 
 * ~restart_lifetime~
-  - An additional TR primitive.
+  - An additional TR primitive
   - Decouples memory copying from restarting lifetimes
   - General usecase:
     - ~memcpy~ object representation to a new location
@@ -161,13 +161,13 @@
     - ARM64e is an important Apple platform
     - Future architectures may move in the same direction
   - Because ~restart_lifetime~ can modify "non-value" bytes of target object,
-    its use in a multi-threaded context is limited.
+    its use in a multi-threaded context is limited
 
 * Possible solutions
-  - Accept the gadget trade off.
-  - Restrict trivial relocatability to non-polymorphic types.
-  - Restrict ~restart_lifetime~ to non-polymorphic types.
-  - Have ~restart_lifetime~ take an additional origin pointer parameter.
+  - Accept the gadget trade off
+  - Restrict trivial relocatability to non-polymorphic types
+  - Restrict ~restart_lifetime~ to non-polymorphic types
+  - Have ~restart_lifetime~ take an additional origin pointer parameter
 
 * For C++26?
   - *Pro*
