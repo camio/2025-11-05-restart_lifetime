@@ -10,3 +10,13 @@
     /* Override the ugly default uppercase headings */
     --r-heading-text-transform: none
 }
+
+/* Reset the default dimming effect on non-highlighted lines */
+.reveal .hljs.has-highlights tr:not(.highlight-line) {
+    opacity: 1;
+}
+
+/* Add a background color to the highlighted line */
+.reveal .hljs.has-highlights tr.highlight-line {
+    background-color: rgba(255, 255, 100, 0.4); /* Semi-transparent yellow */
+}
