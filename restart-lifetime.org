@@ -158,7 +158,7 @@
    #+REVEAL_HTML: </div>
 
 * ~restart_lifetime~ issue
-  - Introduces a gadget on ARM64e
+  - It might be possible to abuse in ARM64e to work around security guarantees
     - ARM64e is an important Apple platform
     - Future architectures may move in the same direction
   - Because ~restart_lifetime~ can modify "non-value" bytes of target object,
