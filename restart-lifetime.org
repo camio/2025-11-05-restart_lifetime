@@ -106,6 +106,7 @@
 
 ** Revisit ~realloc~
 
+  #+ATTR_REVEAL: :code_attribs data-line-numbers='14-15'
   #+begin_src C++
     // A trivially relocatable, but not trivially copyable, type.
     class Foo { /*...*/ };
