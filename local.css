@@ -1,0 +1,12 @@
+/* Tweak table styling to my preference */
+.reveal table th,
+.reveal table td {
+	text-align: left;
+	padding: 0.2em 0.5em 0.2em 0.5em;
+	border-bottom: 0px solid;
+}
+
+:root {
+    /* Override the ugly default uppercase headings */
+    --r-heading-text-transform: none
+}

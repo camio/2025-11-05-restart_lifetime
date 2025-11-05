@@ -1,0 +1,197 @@
+#+TITLE: restart_lifetime
+#+AUTHOR: David Sankel
+#+OPTIONS: reveal_slide_number:nil num:nil toc:nil reveal_control:nil reveal_progress:nil reveal_history:t reveal_width:1280 reveal_height:720 reveal_hash:nil ^:nil reveal_center:t
+#+REVEAL_PLUGINS: (highlight notes)
+#+REVEAL_THEME: sky
+#+REVEAL_MARGIN: 0.06
+#+REVEAL_HIGHLIGHT_CSS: nnfx-light.css
+#+REVEAL_EXTRA_CSS: local.css
+#+REVEAL_TITLE_SLIDE:
+#+REVEAL_EXTRA_SCRIPTS: ("adobe.js")
+
+* A Lifetime-Management Primitive for Trivially Relocatable Types
+  \\
+  \\
+  \\
+  [[https://camio.github.io/trivially_relocate_primitives/trivially_relocate_primitives.pdf][P3858R1]]
+  \\
+  \\
+  \\
+  David Sankel, Jon Bauman, Pablo Halpern
+  \\
+  \\
+  /2025-11-05 LEWG Presentation/
+
+* Trivial Relocation (TR) basis operation
+  #+begin_src C++
+  template<class T>
+  T* trivially_relocate(T* first, T* last, T* result);
+  #+end_src
+
+  - /Mandates/ T is trivially relocatable
+  - /Postconditions/ ~result~ contains objects whose lifetime has begun and
+    whose object representations are the original object representations of
+    ~[first,last)~. Lifetime of objects at ~[first,last)~ have ended.
+
+** Works well for the vector resize use-case
+
+   /Do we need additional basis operations?/
+
+* Unaddressed use-cases
+  Most of these use-cases are addressed by existing (non-portable) library-based
+  trivial relocation facilities.
+
+** ~realloc~
+
+  #+begin_src C++
+    // A trivially relocatable, but not trivially copyable, type.
+    class Foo { /*...*/ };
+
+    // Create a foo sequence with a single element using a specialized allocator.
+    void* foo_sequence_buffer = mi_malloc_aligned(sizeof(Foo), alignof(Foo));
+    Foo* foo_sequence = ::new (foo_sequence_buffer) Foo();
+
+    // Extend the sequence reusing the same memory if possible
+    foo_sequence_buffer = mi_realloc_aligned(foo_sequence_buffer, sizeof(Foo)*2, alignof(Foo));
+    foo_sequence = (Foo*)foo_sequence_buffer;
+    ::new (&foo_sequence[1]) Foo();
+
+    foo_sequence[0].bar(); // UNDEFINED BEHAVIOR
+  #+end_src
+
+** ~realloc~
+
+  #+begin_src C++
+    // A trivially relocatable, but not trivially copyable, type.
+    class Foo { /*...*/ };
+
+    // Create a foo sequence with a single element using a specialized allocator.
+    void* foo_sequence_buffer = mi_malloc_aligned(sizeof(Foo), alignof(Foo));
+    Foo* foo_sequence = ::new (foo_sequence_buffer) Foo();
+
+    // Extend the sequence reusing the same memory if possible
+    foo_sequence_buffer = mi_realloc_aligned(foo_sequence_buffer, sizeof(Foo)*2, alignof(Foo));
+    foo_sequence = (Foo*)foo_sequence_buffer;
+    ::new (&foo_sequence[1]) Foo();
+
+    foo_sequence[0].bar(); // UNDEFINED BEHAVIOR
+  #+end_src
+
+** ~serialization~
+
+   In-memory databases/tiered caching systems
+   - frequently relocate data structures from memory to disk and back again
+   - possible only for /trivially copyable/ types due to the lack of sufficient
+     library primitives for /trivially relocatable/ types
+
+** Specialized ~memcpy~ use case
+   - Tuned memory copy operation can produce a 10% speedup over ~std::memcpy~
+   - Heterogeneous memory systems (e.g. Cuda)
+
+** Rust-interop use case
+   - C++ types that aren't /trivially copyable/ have poor ergonomics (via
+     pinning) or incur performance penalties (heap allocation).
+   - There's no way to extend the fast, ergonomics to /trivially relocatable/
+     types with the existing primitives.
+
+** Type erasure use case
+   Create a typeerased wrapper that is trivially relocatable
+   - Use small buffer optimization when its wrapped type is trivially relocatable.
+   - Use heap allocation otherwise
+
+   /Currently not possible/
+
+* ~restart_lifetime~
+  - An additional TR primitive.
+  - Decouples memory copying from restarting lifetimes
+  - General usecase:
+    - ~memcpy~ object representation to a new location
+    - use ~restart_lifetime~ to restart the object's lifetime a the new location
+
+** ~trivially_relocate~ implemented with ~restart_liftime~
+  #+begin_src C++
+    template<class T>
+    T* trivially_relocate(T* first, T* last, T* result)
+    {
+      memcpy( result,
+              first,
+              (last-first)*sizeof(T));
+      for(size_t i = 0; i < (last-first); ++i)
+        restart_lifetime<T>(result[i]);
+      return result + (last - first);
+    }
+  #+end_src
+
+** Revisit ~realloc~
+
+  #+begin_src C++
+    // A trivially relocatable, but not trivially copyable, type.
+    class Foo { /*...*/ };
+
+    // Create a foo sequence with a single element using a specialized allocator.
+    void* foo_sequence_buffer = mi_malloc_aligned(sizeof(Foo), alignof(Foo));
+    Foo* foo_sequence = ::new (foo_sequence_buffer) Foo();
+
+    // Extend the sequence reusing the same memory if possible
+    foo_sequence_buffer = mi_realloc_aligned(foo_sequence_buffer, sizeof(Foo)*2, alignof(Foo));
+    foo_sequence = (Foo*)foo_sequence_buffer;
+    ::new (&foo_sequence[1]) Foo();
+
+    // Restart lifetime of relocated elements
+    std::restart_lifetime<Foo>(foo_sequence[0]);
+    foo_sequence[0].bar(); // Okay
+  #+end_src
+
+** Other use-cases are handled in a similar way
+
+   From Arthur O'Dwire's [[https://quuxplusone.github.io/blog/2025/10/18/thoughts-on-p3858r0/][Thoughts on P3858R0]]:
+  #+begin_src C++
+    template<class T>
+      requires std::is_trivially_relocatable_v<T> // P1144 semantics
+    void my_sort(T *first, T *last) {
+      auto *cmp = +[](const void *va, const void *vb) {
+        const T& a = *std::restart_lifetime<T>(static_cast<void*>(va));
+        const T& b = *std::restart_lifetime<T>(static_cast<void*>(vb));
+        return a < b;
+      };
+      std::qsort(first, last - first, sizeof(T), cmp);
+    }
+    // and fall back to a type-specific template for the general case
+  #+end_src
+
+* 
+   #+REVEAL_HTML: <div style="font-size: 60%;">
+   |                                          | C++26 draft | + ~restart_lifetime~ | bitwise relocation |
+   |------------------------------------------+-------------+----------------------+--------------------|
+   | Object lifetime based                    | X           | X                    |                    |
+   | Polymorphic type support                 | X           | X                    |                    |
+   | Vec resize use case                      | X           | X                    | X                  |
+   | ~realloc~ use case                       |             | X                    | X                  |
+   | Custom ~memcpy~ use case                 |             | X                    | X                  |
+   | Rust interop use case                    |             | X                    | X                  |
+   | Type erasure use case                    |             | X                    | X                  |
+   | TR defn. consistent w/ existing practice |             |                      | X                  |
+   | Defines previously undefined behavior    |             |                      | X                  |
+   #+REVEAL_HTML: </div>
+
+* ~restart_lifetime~ issue
+  - Introduces a gadget on ARM64e
+    - ARM64e is an important Apple platform
+    - Future architectures may move in the same direction
+  - Because ~restart_lifetime~ can modify "non-value" bytes of target object,
+    its use in a multi-threaded context is limited.
+
+* Possible solutions
+  - Accept the gadget trade off.
+  - Restrict trivial relocatability to non-polymorphic types.
+  - Restrict ~restart_lifetime~ to non-polymorphic types.
+  - Have ~restart_lifetime~ take an additional origin pointer parameter.
+
+* For C++26?
+  - *Pro*
+    - Complete basis operation set for TR
+    - Address many more use-cases
+    - Advances memory safety plans of several organizations
+  - *Con*
+    - Risky given the short time frame
+    - Path to handle ARM64e-like platforms is unclear
