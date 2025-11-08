@@ -13,7 +13,7 @@
   \\
   \\
   \\
-  [[https://camio.github.io/trivially_relocate_primitives/trivially_relocate_primitives.pdf][P3858R1]]
+  [[https://isocpp.org/files/papers/P3858R1.pdf][P3858R1]]
   \\
   \\
   \\
@@ -130,7 +130,7 @@
    From Arthur O'Dwyer's [[https://quuxplusone.github.io/blog/2025/10/18/thoughts-on-p3858r0/][Thoughts on P3858R0]]:
   #+begin_src C++
     template<class T>
-      requires std::is_trivially_relocatable_v<T> // P1144 semantics
+      requires std::is_trivially_relocatable_v<T>
     void my_sort(T *first, T *last) {
       auto *cmp = +[](const void *va, const void *vb) {
         const T& a = *std::restart_lifetime<T>(static_cast<void*>(va));
